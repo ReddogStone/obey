@@ -129,11 +129,50 @@ var Async = (function() {
 		return first(forever(repeat), rejecter);
 	}
 
+	function wait(seconds) {
+		return cont(function(callback) {
+			var id = setTimeout(function() {
+				callback();
+			}, seconds * 1000);
+			return function() {
+				clearTimeout(id);
+			};
+		});
+	}
+
+	function waitTo(time) {
+		var timeToWait = time - Time.now();
+		return wait((timeToWait > 0) ? timeToWait : 0);
+	}
+
+	function doAndContinue(func) {
+		return cont(function(callback) {
+			func();
+			setTimeout(callback, 0);
+		});
+	}
+
+	function fireAndForget(continuation) {
+		return cont(function(callback) {
+			var nestedCancel = continuation(function() {});
+			setTimeout(callback, 0)
+
+			return function() {
+				if (nestedCancel) { nestedCancel(); }
+			};
+		});
+	}
+
 	return {
 		cont: cont,
 		first: first,
 		sequence: sequence,
 		waterfall: waterfall,
-		doUntil: doUntil
+		doUntil: doUntil,
+		wait: wait,
+		waitTo: waitTo,
+		doAndContinue: doAndContinue,
+		fireAndForget: fireAndForget,
+		forever: forever
 	};
 })();

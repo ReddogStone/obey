@@ -298,39 +298,127 @@ var MainGameBehavior = (function() {
 	});
 })();
 
-var splash = (function() {
-	var start = Time.now();
+var MainGame = function(eventQueue) {
+	var splash = (function() {
+		var start = Time.now();
 
-	return Async.doUntil(
-		Async.cont(function(callback) {
-			return nextRender(function(canvas, context, assets) {
-				var dt = Time.now() - start;
-				var frame = Math.floor(dt % 2) + 1;
-				context.drawImage(assets.textures['splash' + frame], 0, 0);
+		return Async.doUntil(
+			Async.cont(function(callback) {
+				return eventQueue.nextRender(function(canvas, context, assets) {
+					var dt = Time.now() - start;
+					var frame = Math.floor(dt % 2) + 1;
+					context.drawImage(assets.textures['splash' + frame], 0, 0);
 
-				callback();
-			})
-		}),
-		nextMouseDown
+					callback();
+				})
+			}),
+			eventQueue.nextMouseDown
+		);
+	})();
+
+	function renderPlayer(context, x, y, texture, frame) {
+		var frame = frame || 0;
+		var w = texture.width;
+		var h = texture.height;
+		context.drawImage(texture, frame * w / 7, 0, w / 7, h, x, y, w / 7, h);
+	}
+
+	var playerYFunc = UnaryFunction.piecewise(
+		226 + PLAYER_INITIAL_Y, OLD_PLAYER_DIE_TIME + NEW_PLAYER_DELIVERY_TIME - 0.3,
+		UnaryFunction.linear(226), 0.3
 	);
-})();
-
-var intro = function(startTime) {
-	return Async.doUntil(
-		Async.cont(function(callback) {
-			return nextRender(function(canvas, context, assets) {
-				context.clearRect(0, 0, canvas.width, canvas.height);
-				callback();
-			})
-		}),
-		Async.first(Sound.play('intro'), nextMouseDown)
+	var playerXFunc = UnaryFunction.piecewise(
+		550 + PLAYER_INITIAL_X, OLD_PLAYER_DIE_TIME,
+		UnaryFunction.linear(550), NEW_PLAYER_DELIVERY_TIME - 0.6
 	);
+
+	var trapXFunc = UnaryFunction.piecewise(
+		0, 0,
+		UnaryFunction.linear(TRAP_OPEN_X), TRAP_OPEN_TIME,
+		UnaryFunction.const(TRAP_OPEN_X), OLD_PLAYER_DIE_TIME - TRAP_OPEN_TIME,
+		UnaryFunction.linear(0), TRAP_CLOSE_TIME
+	);
+
+	var armXFunc = UnaryFunction.piecewise(
+		PLAYER_INITIAL_X, OLD_PLAYER_DIE_TIME,
+		UnaryFunction.linear(0), NEW_PLAYER_DELIVERY_TIME - 0.6,
+		UnaryFunction.const(0), 0.6,
+		UnaryFunction.linear(PLAYER_INITIAL_X), ARM_BACK
+	);
+
+	var armYFunc = UnaryFunction.piecewise(
+		PLAYER_INITIAL_Y, OLD_PLAYER_DIE_TIME + NEW_PLAYER_DELIVERY_TIME - 0.3,
+		UnaryFunction.linear(0), 0.3
+	);
+
+	var doorXFunc = UnaryFunction.piecewise(
+		0, OLD_PLAYER_DIE_TIME - DOOR_OPEN_TIME,
+		UnaryFunction.linear(DOOR_OPEN_X), DOOR_OPEN_TIME,
+		UnaryFunction.const(DOOR_OPEN_X), NEW_PLAYER_DELIVERY_TIME + ARM_BACK - DOOR_OPEN_TIME,
+		UnaryFunction.linear(0), DOOR_OPEN_TIME
+	);
+
+	function renderGame(canvas, context, assets, time) {
+		var playerX = playerXFunc(time);
+		var playerY = playerYFunc(time);
+		var trapX = trapXFunc(time);
+		var armX = armXFunc(time);
+		var armY = armYFunc(time);
+		var doorX = doorXFunc(time);
+
+		context.clearRect(0, 0, canvas.width, canvas.height);
+
+		context.drawImage(assets.textures.layer01, 0, 0);
+		context.drawImage(assets.textures.layer02, -trapX, 0);
+		context.drawImage(assets.textures.layer03, trapX, 0);
+		context.drawImage(assets.textures.layer04, doorX, 0);
+		context.drawImage(assets.textures.layer05, 0, 0);
+		renderPlayer(context, playerX, playerY, assets.textures.player);
+		context.drawImage(assets.textures.layer06, armX, armY);
+		context.drawImage(assets.textures.layer05_a, 0, 0);
+		context.drawImage(assets.textures.layer07, 0, 0);
+		context.drawImage(assets.textures.layer08, 0, 0);
+		context.drawImage(assets.textures.layer09, 0, 0);
+		context.drawImage(assets.textures.layer10, 0, 0);
+	}
+
+	var intro = function(startTime) {
+		var totalIntroTime = OLD_PLAYER_DIE_TIME + NEW_PLAYER_DELIVERY_TIME + ARM_BACK;
+
+		return Async.doUntil(
+			Async.cont(function(callback) {
+				return eventQueue.nextRender(function(canvas, context, assets) {
+					renderGame(canvas, context, assets, Time.now() - startTime);
+					callback();
+				})
+			}),
+			Async.first(
+				Async.sequence(
+					Async.waitTo(startTime + OLD_PLAYER_DIE_TIME),
+					Async.fireAndForget(Sound.play('playerIn')),
+					Async.waitTo(startTime + totalIntroTime),
+					Sound.play('intro'),
+					Async.wait(1)
+				),
+				eventQueue.nextMouseDown
+			)
+		);
+	};
+
+	var workerCycle = function(startTime) {
+		return Async.sequence(
+			intro(startTime),
+			Async.fireAndForget(Sound.play('playerOut'))
+		);
+	};
+
+	var game = Async.forever(function(callback) {
+		function next(result) {
+			var start = Time.now();
+			workerCycle(start)(next);
+		}
+		workerCycle(Time.now() - OLD_PLAYER_DIE_TIME)(next);
+	});
+
+	return Async.sequence(splash, game);
 };
-
-var game = (function() {
-	var start = Time.now();
-
-	return intro(start);
-})();
-
-var main = Async.sequence(splash, game);
