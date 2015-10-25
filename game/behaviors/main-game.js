@@ -316,20 +316,35 @@ var MainGame = function(eventQueue) {
 		);
 	})();
 
-	function renderPlayer(context, x, y, texture, frame) {
+	function renderPlayer(context, x, y, scale, texture, frame) {
 		var frame = frame || 0;
 		var w = texture.width;
 		var h = texture.height;
-		context.drawImage(texture, frame * w / 7, 0, w / 7, h, x, y, w / 7, h);
+
+		context.save();
+		context.translate(x, y);
+		context.translate(w / 7 * 0.5, h * 0.9);
+		context.scale(scale, scale);
+		context.translate(-w / 7 * 0.5, -h * 0.9);
+		context.drawImage(texture, frame * w / 7, 0, w / 7, h, 0, 0, w / 7, h);
+		context.restore();
 	}
 
 	var playerYFunc = UnaryFunction.piecewise(
-		226 + PLAYER_INITIAL_Y, OLD_PLAYER_DIE_TIME + NEW_PLAYER_DELIVERY_TIME - 0.3,
+		226, OLD_PLAYER_DIE_TIME,
+		UnaryFunction.const(226 + PLAYER_INITIAL_Y), NEW_PLAYER_DELIVERY_TIME - 0.3,
 		UnaryFunction.linear(226), 0.3
 	);
 	var playerXFunc = UnaryFunction.piecewise(
-		550 + PLAYER_INITIAL_X, OLD_PLAYER_DIE_TIME,
+		550, OLD_PLAYER_DIE_TIME,
+		UnaryFunction.const(550 + PLAYER_INITIAL_X), 0.01,
 		UnaryFunction.linear(550), NEW_PLAYER_DELIVERY_TIME - 0.6
+	);
+
+	var playerScaleFunc = UnaryFunction.piecewise(
+		1, 0,
+		UnaryFunction.pow(0, 0.2), OLD_PLAYER_DIE_TIME,
+		UnaryFunction.const(1), OLD_PLAYER_DIE_TIME + 1
 	);
 
 	var trapXFunc = UnaryFunction.piecewise(
@@ -365,6 +380,7 @@ var MainGame = function(eventQueue) {
 		var armX = armXFunc(time);
 		var armY = armYFunc(time);
 		var doorX = doorXFunc(time);
+		var playerScale = playerScaleFunc(time);
 
 		context.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -373,10 +389,12 @@ var MainGame = function(eventQueue) {
 		context.drawImage(assets.textures.layer03, trapX, 0);
 		context.drawImage(assets.textures.layer04, doorX, 0);
 		context.drawImage(assets.textures.layer05, 0, 0);
-		renderPlayer(context, playerX, playerY, assets.textures.player);
-		context.drawImage(assets.textures.layer06, armX, armY);
-		context.drawImage(assets.textures.layer05_a, 0, 0);
 		context.drawImage(assets.textures.layer07, 0, 0);
+		context.drawImage(assets.textures.layer06, armX, armY);
+
+		renderPlayer(context, playerX, playerY, playerScale, assets.textures.player);
+
+		context.drawImage(assets.textures.layer05_a, 0, 0);
 		context.drawImage(assets.textures.layer08, 0, 0);
 		context.drawImage(assets.textures.layer09, 0, 0);
 		context.drawImage(assets.textures.layer10, 0, 0);

@@ -58,6 +58,12 @@ var UnaryFunction = (function() {
 			return function(fromValue, percentage) {
 				return (1 - percentage) * fromValue + percentage * toValue;
 			};
+		},
+		pow: function(toValue, power) {
+			return function(fromValue, percentage) {
+				percentage = Math.pow(percentage, power);
+				return (1 - percentage) * fromValue + percentage * toValue;
+			};
 		}
 	};
 })();
