@@ -5,9 +5,9 @@
 
 <script src="engine/utils.js" type="text/javascript"></script>
 
+<script src="engine/async.js" type="text/javascript"></script>
 <script src="engine/script-loader.js" type="text/javascript"></script>
 
-<script src="engine/entities.js" type="text/javascript"></script>
 <script src="engine/rect.js" type="text/javascript"></script>
 <script src="engine/point.js" type="text/javascript"></script>
 <script src="engine/vector.js" type="text/javascript"></script>
@@ -16,22 +16,15 @@
 <script src="engine/sound.js" type="text/javascript"></script>
 <script src="engine/time.js" type="text/javascript"></script>
 <script src="engine/renderer.js" type="text/javascript"></script>
+<script src="engine/event-queues.js" type="text/javascript"></script>
 
 <script src="engine/behaviors/stateful.js" type="text/javascript"></script>
 
 <script src="engine/seedrandom-master/seedrandom.min.js" type="text/javascript"></script>
 
 <script src="game/constants.js" type="text/javascript"></script>
-<script src="game/render-utils.js" type="text/javascript"></script>
-<script src="game/levels.js" type="text/javascript"></script>
-
-<script src="game/logic/tower.js" type="text/javascript"></script>
-<script src="game/logic/monster.js" type="text/javascript"></script>
-<script src="game/logic/projectile.js" type="text/javascript"></script>
-<script src="game/logic/effect.js" type="text/javascript"></script>
 
 <script src="game/behaviors/main-game.js" type="text/javascript"></script>
-<script src="game/behaviors/root.js" type="text/javascript"></script>
 
 <script>
 
@@ -42,7 +35,18 @@ window.requestAnimFrame = (function(callback) {
 	window.oRequestAnimationFrame ||
 	window.msRequestAnimationFrame ||
 	function(callback){
-		window.setTimeout(callback, 1000 / 60);
+		return window.setTimeout(callback, 1000 / 60);
+	};
+})();
+
+window.cancelAnimFrame = (function(id) {
+	return window.cancelAnimationFrame ||
+	window.webkitCancelAnimationFrame ||
+	window.mozCancelAnimationFrame ||
+	window.oCancelAnimationFrame ||
+	window.msCancelAnimationFrame ||
+	function(id){
+		return window.clearTimeout(id);
 	};
 })();
 
@@ -83,7 +87,6 @@ function onload() {
 		intro: {
 			sources: [
 				{ url: 'game/assets/sounds/1 welcome worker.wav' }
-				//{ url: 'game/assets/sounds/button clicking sound.wav' }
 			],
 			volume: 1
 		},
@@ -155,29 +158,38 @@ function onload() {
 		}
 	});
 
-	var behavior = RootBehavior.init();
+	function loadTextures(sources) {
+		return sources.map(function(source) {
+			var result = new Image();
+			result.src = source;
+			return result;
+		});
+	}
+
+	var assets = {
+		textures: loadTextures({
+			splash1: 'game/assets/textures/Splash1.png',
+			splash2: 'game/assets/textures/Splash2.png',
+		})
+	};
 
 	document.addEventListener('keydown', function(event) {
-		behavior = behavior('keydown', event, Time.now() * 0.001);
 	}, false);
 	document.addEventListener('keypress', function(event) {
-		behavior = behavior('keypress', event, Time.now() * 0.001);
 	}, false);
 	document.addEventListener('keyup', function(event) {
-		behavior = behavior('keyup', event, Time.now() * 0.001);
 	}, false);
 
 	canvas.addEventListener('mousedown', function(event) {
-		behavior = behavior('mousedown', getMousePos(canvas, event), Time.now() * 0.001);
+		var mousePos = getMousePos(canvas, event);
+		onMouseDown(mousePos);
 	}, false);
 	canvas.addEventListener('mousemove', function(event) {
-		behavior = behavior('mousemove', getMousePos(canvas, event), Time.now() * 0.001);
 	}, false);
 	document.addEventListener('mouseup', function(event) {
-		behavior = behavior('mouseup', getMousePos(canvas, event), Time.now() * 0.001);
 	}, false);
 
-	var lastTime = Time.now() * 0.001;
+/*	var lastTime = Time.now() * 0.001;
 	var frameTimes = [];
 	var animate = function() {
 		var time = Time.now() * 0.001;
@@ -221,14 +233,30 @@ function onload() {
 
 		requestAnimFrame(animate);
 	};
-	animate();
+	animate(); */
+
+	nextRender = Async.cont(function(callback) {
+		var id = requestAnimFrame(function() {
+			callback(canvas, context, assets);
+		});
+
+		return function() {
+			cancelAnimFrame(id);
+		};
+	});
 
 	window.addEventListener('blur', function() {
-		Sound.stopAll();
+//		Sound.stopAll();
 	});
 	window.addEventListener('focus', function() {
 //		Sound.play('background2');
 	});
+
+	function next() {
+		return main(next);
+	}
+
+	next();
 }
 
 </script>

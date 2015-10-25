@@ -297,3 +297,40 @@ var MainGameBehavior = (function() {
 		};
 	});
 })();
+
+var splash = (function() {
+	var start = Time.now();
+
+	return Async.doUntil(
+		Async.cont(function(callback) {
+			return nextRender(function(canvas, context, assets) {
+				var dt = Time.now() - start;
+				var frame = Math.floor(dt % 2) + 1;
+				context.drawImage(assets.textures['splash' + frame], 0, 0);
+
+				callback();
+			})
+		}),
+		nextMouseDown
+	);
+})();
+
+var intro = function(startTime) {
+	return Async.doUntil(
+		Async.cont(function(callback) {
+			return nextRender(function(canvas, context, assets) {
+				context.clearRect(0, 0, canvas.width, canvas.height);
+				callback();
+			})
+		}),
+		Async.first(Sound.play('intro'), nextMouseDown)
+	);
+};
+
+var game = (function() {
+	var start = Time.now();
+
+	return intro(start);
+})();
+
+var main = Async.sequence(splash, game);
