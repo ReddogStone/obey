@@ -302,7 +302,7 @@ var MainGame = function(eventQueue) {
 	var splash = (function() {
 		var start = Time.now();
 
-		return Async.doUntil(
+		return Async.doWhileSecondRunning(
 			Async.cont(function(callback) {
 				return eventQueue.nextRender(function(canvas, context, assets) {
 					var dt = Time.now() - start;
@@ -373,7 +373,7 @@ var MainGame = function(eventQueue) {
 		UnaryFunction.linear(0), DOOR_OPEN_TIME
 	);
 
-	function renderGame(canvas, context, assets, time) {
+	function renderIntro(canvas, context, assets, time) {
 		var playerX = playerXFunc(time);
 		var playerY = playerYFunc(time);
 		var trapX = trapXFunc(time);
@@ -395,42 +395,239 @@ var MainGame = function(eventQueue) {
 		renderPlayer(context, playerX, playerY, playerScale, assets.textures.player);
 
 		context.drawImage(assets.textures.layer05_a, 0, 0);
+		context.drawImage(assets.textures.layer10, 0, 0);
+	}
+
+	var redLightFunc = UnaryFunction.piecewise(
+		0, LIGHT_START,
+		UnaryFunction.const(1), LIGHT_END - LIGHT_START,
+		UnaryFunction.const(0), 0.01
+	);
+
+	function renderRound(canvas, context, assets, time, pressTime, stage) {
+		context.clearRect(0, 0, canvas.width, canvas.height);
+
+		context.drawImage(assets.textures.layer01, 0, 0);
+		context.drawImage(assets.textures.layer02, 0, 0);
+		context.drawImage(assets.textures.layer03, 0, 0);
+		context.drawImage(assets.textures.layer04, 0, 0);
+		context.drawImage(assets.textures.layer05, 0, 0);
+		context.drawImage(assets.textures.layer07, 0, 0);
+
+		if (stage > 0) {
+			var sin = Math.sin(time / ROUND_LENGTH * 2 * Math.PI);
+			context.globalAlpha = sin * sin;
+			context.drawImage(assets.textures.layer09, 0, 0);
+			context.globalAlpha = 1;
+		}
+
+		var frame = 0;
+		if (pressTime !== undefined) {
+			frame = Math.floor((time - pressTime) * 15);
+			if (frame > 6) {
+				frame = 0;
+			}
+		}
+		renderPlayer(context, 550, 226, 1, assets.textures.player, frame);
+
+		context.drawImage(assets.textures.layer05_a, 0, 0);
+
+		context.globalAlpha = redLightFunc(time);
 		context.drawImage(assets.textures.layer08, 0, 0);
-		context.drawImage(assets.textures.layer09, 0, 0);
+		context.globalAlpha = 1;
+
 		context.drawImage(assets.textures.layer10, 0, 0);
 	}
 
 	var intro = function(startTime) {
 		var totalIntroTime = OLD_PLAYER_DIE_TIME + NEW_PLAYER_DELIVERY_TIME + ARM_BACK;
 
-		return Async.doUntil(
+		return Async.doWhileSecondRunning(
 			Async.cont(function(callback) {
 				return eventQueue.nextRender(function(canvas, context, assets) {
-					renderGame(canvas, context, assets, Time.now() - startTime);
+					renderIntro(canvas, context, assets, Time.now() - startTime);
 					callback();
 				})
 			}),
-			Async.first(
-				Async.sequence(
-					Async.waitTo(startTime + OLD_PLAYER_DIE_TIME),
-					Async.fireAndForget(Sound.play('playerIn')),
-					Async.waitTo(startTime + totalIntroTime),
-					Sound.play('intro'),
-					Async.wait(1)
+			Async.sequence(
+				Async.first(
+					Async.sequence(
+						Async.waitTo(startTime + OLD_PLAYER_DIE_TIME),
+						Async.fireAndForget(Sound.play('playerIn')),
+						Async.waitTo(startTime + totalIntroTime),
+						Sound.play('intro')
+					),
+					eventQueue.nextMouseDown
 				),
-				eventQueue.nextMouseDown
+				Async.wait(1)
 			)
+		);
+	};
+
+	var performRound = function(stage, startTime) {
+		var rest = Async.cont(function(callback) {
+			Async.first(
+				Async.ret(Async.waitTo(startTime + ROUND_LENGTH), true),
+				Async.ret(eventQueue.nextMouseDown, false)
+			)(function(ok) {
+				if (ok) {
+					return callback({ roundEnd: true });
+				}
+				callback({ warning: true, press: true }, rest);
+			});
+		});
+
+		var afterPress = Async.cont(function(callback) {
+			Async.first(
+				Async.ret(Async.wait(0.5), false),
+				Async.ret(eventQueue.nextMouseDown, true)
+			)(function(nextStage) {
+				if (nextStage) {
+					return callback({ press: true, nextStage: true }, rest);
+				}
+				callback({ wellDone: true }, rest);
+			});
+		});
+
+		var beforePress = Async.cont(function(callback) {
+			Async.first(
+				Async.ret(eventQueue.nextMouseDown, true),
+				Async.ret(Async.waitTo(startTime + LIGHT_END), false)
+			)(function(press) {
+				if (press) {
+					return callback({ press: true }, afterPress);
+				}
+				callback({ warning: true }, rest);
+			});
+		});
+
+		return beforePress;
+	};
+
+	var performStages = function(startTime) {
+		var pressTime;
+		var roundStart = startTime;
+		var warnings = 0;
+		var shortGood = false;
+		var cancelWellDone;
+		var cancelWarning;
+		var endRound;
+		var stage = 0;
+
+		return Async.doWhileSecondRunning(
+			Async.cont(function(callback) {
+				return eventQueue.nextRender(function(canvas, context, assets) {
+					renderRound(canvas, context, assets, Time.now() - roundStart, pressTime, stage);
+					callback();
+				})
+			}),
+			Async.cont(function(callback) {
+				function processNextEvent(event, nextState) {
+					if (event.press) {
+						Sound.play('buttonPress')(function() {});
+						pressTime = Time.now() - roundStart;
+					}
+
+					if (event.warning) {
+						warnings++;
+						console.log('Warning!');
+
+						if (warnings > 2) {
+							return callback();
+						}
+
+						if (cancelWellDone) { cancelWellDone(); }
+						if (cancelWarning) { cancelWarning(); }
+						cancelWarning = Sound.play('bad' + warnings)(function() {
+							Async.wait(1)(function() {
+								cancelWarning = null;
+								if (endRound) { endRound(); }
+							});
+						});
+					}
+
+					if (event.wellDone) {
+						var soundName = shortGood ? 'good2' : 'good1';
+						if (!shortGood) { shortGood = true; }
+						cancelWellDone = Sound.play(soundName)(function() {});
+					}
+
+					if (event.nextStage) {
+						if (stage === 0) {
+							Sound.play('multiplePress')(function() {});
+						}
+						stage++;
+
+						if (cancelAmb) { cancelAmb(); }
+						Sound.play(stage === 0 ? 'amb' : 'ambVolt')(function() {});
+					}
+
+					if (event.roundEnd) {
+						endRound = function() {
+							roundStart = Time.now();
+							pressTime = undefined;
+
+							if (cancelAmb) { cancelAmb(); }
+							Sound.play(stage === 0 ? 'amb' : 'ambVolt')(function() {});
+
+							nextState = performRound(stage, roundStart);
+							nextState(processNextEvent);
+						};
+						if (!cancelWarning) { endRound(); }
+						return;
+					}
+
+					nextState(processNextEvent);
+				}
+
+				var cancelAmb = Sound.play('amb')(function() {});
+				var initialRoundState = performRound(stage, startTime);
+				initialRoundState(processNextEvent);
+			})
 		);
 	};
 
 	var workerCycle = function(startTime) {
 		return Async.sequence(
 			intro(startTime),
+/*			Async.cont(function(finalCallback) {
+				var warnings = 0;
+
+				var warn = Async.cont(function(callback) {
+					warnings++;
+					if (warnings > 2) {
+						finalCallback();
+					}
+
+					if (cancelWellDone) { cancelWellDone(); }
+					return Sound.play('bad' + warnings)(callback);
+				});
+
+				var cancelWellDone;
+				var shortGood = false;
+				var wellDone = function() {
+					var soundName = shortGood ? 'good2' : 'good1';
+					if (!shortGood) { shortGood = true; }
+					cancelWellDone = Sound.play(soundName)(function() {});
+				};
+
+				var stage = 0;
+				function processOutcome(result) {
+					stage++;
+					performStage(stage, Time.now(), warn, wellDone)(processOutcome);
+				}
+				performStage(stage, Time.now(), warn, wellDone)(processOutcome);
+			}), */
+			Async.then(function() {
+				return performStages(Time.now());
+			}),
+			Sound.play('termination'),
+			Async.wait(0.5),
 			Async.fireAndForget(Sound.play('playerOut'))
 		);
 	};
 
-	var game = Async.forever(function(callback) {
+	var game = Async.cont(function(callback) {
 		function next(result) {
 			var start = Time.now();
 			workerCycle(start)(next);

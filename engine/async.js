@@ -5,6 +5,7 @@ var Async = (function() {
 			var nestedCancel = raw(function() {
 				if (!cancelled) {
 					callback.apply(null, arguments);
+					cancelled = true;
 				}
 			});
 
@@ -104,8 +105,10 @@ var Async = (function() {
 				cancelAll();
 			}
 
-			var nestedCancels = tasks.map(function(task) {
-				return task(finish);
+			var nestedCancels = [];
+			tasks.forEach(function(task, index) {
+				// cannot map(), since the task could end instantly and call finish, which needs nestedCancels
+				nestedCancels[index] = task(finish);
 			});
 
 			return cancelAll;
@@ -125,8 +128,14 @@ var Async = (function() {
 		});
 	}
 
-	function doUntil(repeat, rejecter) {
+	function doWhileSecondRunning(repeat, rejecter) {
 		return first(forever(repeat), rejecter);
+	}
+
+	function onceWhileSecondRunning(first, second) {
+		return first(cont(function() {
+			return first(function() {});
+		}), rejecter);
 	}
 
 	function wait(seconds) {
@@ -156,10 +165,27 @@ var Async = (function() {
 		return cont(function(callback) {
 			var nestedCancel = continuation(function() {});
 			setTimeout(callback, 0)
+		});
+	}
 
-			return function() {
-				if (nestedCancel) { nestedCancel(); }
-			};
+	function then(func) {
+		return cont(function(callback) {
+			var continuation = func();
+			continuation(callback);
+		});
+	}
+
+	function constant(value) {
+		return cont(function(callback) {
+			setTimeout(callback.bind(value), 0);
+		});
+	}
+
+	function ret(continuation, value) {
+		return cont(function(callback) {
+			return continuation(function() {
+				callback(value);
+			});
 		});
 	}
 
@@ -168,11 +194,14 @@ var Async = (function() {
 		first: first,
 		sequence: sequence,
 		waterfall: waterfall,
-		doUntil: doUntil,
+		doWhileSecondRunning: doWhileSecondRunning,
 		wait: wait,
 		waitTo: waitTo,
 		doAndContinue: doAndContinue,
 		fireAndForget: fireAndForget,
-		forever: forever
+		forever: forever,
+		then: then,
+		ret: ret,
+		onceWhileSecondRunning: onceWhileSecondRunning
 	};
 })();
