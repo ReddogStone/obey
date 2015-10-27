@@ -415,10 +415,20 @@ var MainGame = function(eventQueue) {
 		context.drawImage(assets.textures.layer07, 0, 0);
 
 		if (stage > 0) {
-			var sin = Math.sin(time / ROUND_LENGTH * 2 * Math.PI);
+			var angle = time / ROUND_LENGTH * 2 * Math.PI;
+			var sin = Math.sin(angle);
+
 			context.globalAlpha = sin * sin;
 			context.drawImage(assets.textures.layer09, 0, 0);
 			context.globalAlpha = 1;
+
+			context.save();
+			context.translate(92, 7);
+			context.translate(340, 440);
+			context.rotate(sin * Math.PI * 0.2 + Math.PI * 0.3);
+			context.translate(-92, -7);
+			context.drawImage(assets.textures.arrow, 0, 0);
+			context.restore();
 		}
 
 		var frame = 0;
@@ -539,8 +549,8 @@ var MainGame = function(eventQueue) {
 						if (cancelWellDone) { cancelWellDone(); }
 						if (cancelWarning) { cancelWarning(); }
 						cancelWarning = Sound.play('bad' + warnings)(function() {
+							cancelWarning = null;
 							Async.wait(1)(function() {
-								cancelWarning = null;
 								if (endRound) { endRound(); }
 							});
 						});
@@ -563,7 +573,7 @@ var MainGame = function(eventQueue) {
 					}
 
 					if (event.roundEnd) {
-						endRound = function() {
+						var end = function() {
 							roundStart = Time.now();
 							pressTime = undefined;
 
@@ -573,7 +583,11 @@ var MainGame = function(eventQueue) {
 							nextState = performRound(stage, roundStart);
 							nextState(processNextEvent);
 						};
-						if (!cancelWarning) { endRound(); }
+						if (!cancelWarning) {
+							end();
+						} else {
+							endRound = end;
+						}
 						return;
 					}
 
