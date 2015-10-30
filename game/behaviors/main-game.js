@@ -90,7 +90,7 @@ var MainGame = function(eventQueue) {
 		context.drawImage(assets.textures.layer04, doorX, 0);
 		context.drawImage(assets.textures.layer05, 0, 0);
 		context.drawImage(assets.textures.layer07, 0, 0);
-		context.drawImage(assets.textures.layer06, armX, armY);
+		context.drawImage(assets.textures.layer11, armX, armY);
 
 		renderPlayer(context, playerX, playerY, playerScale, assets.textures.player);
 
