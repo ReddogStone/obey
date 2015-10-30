@@ -110,12 +110,25 @@ var MainGame = function(eventQueue) {
 	}
 
 	function renderRound(canvas, context, assets, time, pressTime, stage) {
+		if (stage > 2) {
+			context.save();
+
+			var trembleStrength = (stage > 3) ? (1 + time * 0.1) * FINAL_TREMBLE_STRENGTH : TREMBLE_STRENGTH;
+
+			var x = trembleStrength * (Math.sin(TREMBLE_SPEED * time) + Math.cos(2 * TREMBLE_SPEED * time - 2));
+			var y = trembleStrength * (Math.cos(TREMBLE_SPEED * time + 2) + Math.sin(2 * TREMBLE_SPEED * time + 4));
+
+			context.translate(x, y);
+		}
+
+		var doorX = (stage > 2) ? time * FINAL_DOOR_OPEN_SPEED : 0;
+
 		context.clearRect(0, 0, canvas.width, canvas.height);
 
 		context.drawImage(assets.textures.layer01, 0, 0);
 		context.drawImage(assets.textures.layer02, 0, 0);
 		context.drawImage(assets.textures.layer03, 0, 0);
-		context.drawImage(assets.textures.layer04, 0, 0);
+		context.drawImage(assets.textures.layer04, doorX, 0);
 		context.drawImage(assets.textures.layer05, 0, 0);
 		context.drawImage(assets.textures.layer07, 0, 0);
 
@@ -151,6 +164,10 @@ var MainGame = function(eventQueue) {
 		context.globalAlpha = 1;
 
 		context.drawImage(assets.textures.layer10, 0, 0);
+
+		if (stage > 2) {
+			context.restore();
+		}		
 	}
 
 	var intro = function(startTime) {
@@ -240,12 +257,45 @@ var MainGame = function(eventQueue) {
 					}
 					return callback(event, afterPress);
 				}
-				callback((stage < 2) ? { warning: true } : { nextStage: true }, rest);
+				callback((stage < 2) ? { warning: true } : { nextStage: true }, (stage < 2) ? rest : undefined);
 			});
 		});
 
+		if (stage === 3) {
+			beforePress = Async.cont(function(callback) {
+				Async.first(
+					Async.sequence(
+						Sound.play('overload'),
+						Async.forever(Sound.play('finalOverload'))
+					),
+					Async.ret(eventQueue.nextMouseDown, true),
+					Async.ret(Async.waitTo(startTime + LAST_ROUND_LENGTH), false)
+				)(function(press) {
+					callback(press ? { press: true, finalDestroy: true } : { finalEscape: true });
+				});
+			});
+		}
+
 		return beforePress;
 	};
+
+	var ending = function(startTime, explodeEnding) {
+		return Async.first(
+			Async.forever(
+				Async.cont(function(callback) {
+					return eventQueue.nextRender(function(canvas, context, assets) {
+						context.fillStyle = explodeEnding ? 'red' : 'white';
+						context.globalAlpha = (Time.now() - startTime) * 0.1;
+						context.fillRect(0, 0, canvas.width, canvas.height);
+						context.globalAlpha = 1;
+						callback();
+					})
+				})
+			),
+			Async.forever(Sound.play('finalOverload')),
+			Async.wait(10)
+		);
+	}
 
 	var performStages = function(startTime) {
 		var pressTime;
@@ -276,7 +326,7 @@ var MainGame = function(eventQueue) {
 						console.log('Warning!');
 
 						if (warnings > 2) {
-							return callback();
+							return callback(true);
 						}
 
 						if (cancelWellDone) { cancelWellDone(); }
@@ -300,7 +350,7 @@ var MainGame = function(eventQueue) {
 						switch (stage) {
 							case 0: sound = 'multiplePress'; break;
 							case 1: sound = 'instability'; break;
-							case 2: sound = 'overload'; break;
+//							case 2: sound = 'overload'; break;
 						}
 						if (sound) {
 							Sound.play(sound)(function() {});
@@ -330,6 +380,20 @@ var MainGame = function(eventQueue) {
 						return;
 					}
 
+					if (event.finalEscape || event.finalDestroy) {
+						stage++;
+						return ending(Time.now(), event.finalDestroy)(callback);
+					}
+
+					if (!nextState) {
+						roundStart = Time.now();
+						pressTime = undefined;
+
+						if (cancelAmb) { cancelAmb(); }
+						Sound.play(stage === 0 ? 'amb' : 'ambVolt')(function() {});
+
+						nextState = performRound(stage, roundStart)
+					}
 					nextState(processNextEvent);
 				}
 
@@ -341,19 +405,30 @@ var MainGame = function(eventQueue) {
 	};
 
 	var workerCycle = function(startTime) {
-		return Async.sequence(
-			intro(startTime),
-			Async.then(function() {
-				return performStages(Time.now());
-			}),
-			Sound.play('termination'),
-			Async.wait(0.5),
-			Async.fireAndForget(Sound.play('playerOut'))
-		);
+		return Async.cont(function(finalCallback) {
+			return Async.sequence(
+				intro(startTime),
+				Async.cont(function(callback) {
+					return performStages(Time.now())(function(isDeath) {
+						if (!isDeath) {
+							return finalCallback(true);
+						}
+						callback();
+					});
+				}),
+				Sound.play('termination'),
+				Async.wait(0.5),
+				Async.fireAndForget(Sound.play('playerOut'))
+			)(finalCallback);
+		});
 	};
 
 	var game = Async.cont(function(callback) {
-		function next(result) {
+		function next(won) {
+			if (won) {
+				return callback();
+			}
+
 			var start = Time.now();
 			workerCycle(start)(next);
 		}
