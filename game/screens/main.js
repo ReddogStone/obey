@@ -1,5 +1,6 @@
 var MainScreen = function() {
 	var entities = EntitySystem();
+	var actionSystem = ActionSystem();
 
 	var playerTest = entities.add({
 		sprite: {
@@ -9,12 +10,17 @@ var MainScreen = function() {
 		zOrder: 1
 	});
 
-	var middle = entities.add({});
+	var middle = entities.add({
+		sprite: {
+			id: 'arrow',
+			anchor: vec(0, 0)
+		},
+		zOrder: 0
+	});
 
 	var top = entities.add({
 		pos: vec(100, 100)
 	});
-
 
 	middle.relativePos = {
 		offset: vec(500, 0),
@@ -25,10 +31,26 @@ var MainScreen = function() {
 		parent: middle
 	};
 
+	actionSystem.add(Action.run(function*() {
+		while (true) {
+			var startOffset = vclone(playerTest.relativePos.offset);
+			yield Action.interval(0.5, function(progress) {
+				playerTest.relativePos.offset = vscale(startOffset, 1.0 - progress);
+			});
+
+			yield Action.interval(1.0, function() {});
+			yield Action.interval(2.0, function(progress) {
+				playerTest.relativePos.offset = vscale(startOffset, progress);
+			});
+			yield Action.interval(1.0, function() {});
+		}
+	}));
+
 	return function(event) {
 		switch (event.type) {
 			case 'update':
 				RelativeSystem.update(entities);
+				actionSystem.update(event.dt);
 				break;
 
 			case 'show':

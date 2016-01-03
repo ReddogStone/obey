@@ -4,7 +4,7 @@ var SpriteSystem = (function() {
 			entities
 				.filter(['pos', 'sprite'])
 				.sort(function(entity1, entity2) {
-					return entity1.zOrder - entity2.zOrder;
+					return (entity1.zOrder || 0) - (entity2.zOrder || 0);
 				})
 				.forEach(function(entity) {
 					var pos = entity.pos;

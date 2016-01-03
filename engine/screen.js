@@ -1,9 +1,4 @@
 var Screen = (function() {
-	function isContinuation(obj) {
-		return (typeof obj === 'function');
-	}
-
-	// Continuation monad.
 	return {
 		run: Monad(function unit(error, result) {
 			if (error) { throw error; }

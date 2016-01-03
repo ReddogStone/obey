@@ -2,6 +2,10 @@ function vec(x, y) {
 	return { x: x, y: y };
 }
 
+function vclone(v) {
+	return vec(v.x, v.y);
+}
+
 function vadd(v1, v2) {
 	return vec(v1.x + v2.x, v1.y + v2.y);
 }
