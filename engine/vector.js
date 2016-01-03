@@ -1,47 +1,37 @@
-var Vector = (function() {
-	var make = Point.make;
+function vec(x, y) {
+	return { x: x, y: y };
+}
 
-	function add(v1, v2) {
-		return make(v1.x + v2.x, v1.y + v2.y);
-	}
-	function sub(v1, v2) {
-		return make(v1.x - v2.x, v1.y - v2.y);
-	}
+function vadd(v1, v2) {
+	return vec(v1.x + v2.x, v1.y + v2.y);
+}
+function vsub(v1, v2) {
+	return vec(v1.x - v2.x, v1.y - v2.y);
+}
 
-	function neg(v) {
-		return make(-v.x, -v.y);
-	}
-	function mul(v, s) {
-		return make(v.x * s, v.y * s);
-	}
+function vneg(v) {
+	return vec(-v.x, -v.y);
+}
+function vscale(v, s) {
+	return vec(v.x * s, v.y * s);
+}
 
-	function sqLength(v) {
-		return v.x * v.x + v.y * v.y;
-	}
+function vmul(v1, v2) {
+	return vec(v1.x * v2.x, v1.y * v2.y);
+}
 
-	function length(v) {
-		return Math.sqrt(sqLength(v));
-	}
+function vsqlen(v) {
+	return v.x * v.x + v.y * v.y;
+}
 
-	function normalize(v) {
-		return mul(v, 1.0 / length(v));		
-	}
+function vlen(v) {
+	return Math.sqrt(vsqlen(v));
+}
 
-	return {
-		make: make,
-		clone: Point.clone,
-		add: add,
-		neg: neg,
-		mul: mul,
-		sub: sub,
-		lerp: function(v1, v2, a) {
-			return add(mul(v1, 1 - a), mul(v2, a));
-		},
-		sqLength: sqLength,
-		length: length,
-		normalize: normalize,
-		direction: function(p1, p2) {
-			return normalize(sub(p2, p1));
-		}
-	}
-})();
+function vnorm(v) {
+	return vscale(v, 1.0 / vlen(v));
+}
+
+function vdir(from, to) {
+	return vnorm(vsub(to, from));
+}

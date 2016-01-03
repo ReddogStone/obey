@@ -26,27 +26,7 @@
 		};
 	}
 
-	function arrayOpToObjectOp(operation) {
-		return function(func, thisArg) {
-			var self = this;
-			var input = Object.keys(this).map(function(key) {
-				return {
-					key: key,
-					value: self[key]
-				};
-			});
-			var keyValues = operation.call(input, function(keyValue) {
-				return func.call(thisArg, keyValue.value, keyValue.key, self)
-			});
-			var result = {};
-			keyValues.forEach(function(keyValue) {
-				result[keyValue.key] = keyValue.value;
-			});
-			return result;
-		};
-	}
-
-	function defObjectMethod(name, method) {
+/*	function defObjectMethod(name, method) {
 		try {
 			Object.defineProperty(Object.prototype, name, { enumerable: false, value: method });
 		} catch (e) {
@@ -164,7 +144,7 @@
 			result[value].push(key);
 		});
 		return result;
-	});
+	}); */
 
 	Object.values = function(obj) {
 		return Object.keys(obj).map(function(key) { return obj[key]; });

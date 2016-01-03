@@ -5,27 +5,36 @@
 
 <script src="engine/utils.js" type="text/javascript"></script>
 
+<script src="engine/monad.js" type="text/javascript"></script>
 <script src="engine/async.js" type="text/javascript"></script>
-<script src="engine/script-loader.js" type="text/javascript"></script>
 
 <script src="engine/function.js" type="text/javascript"></script>
 <script src="engine/rect.js" type="text/javascript"></script>
-<script src="engine/point.js" type="text/javascript"></script>
 <script src="engine/vector.js" type="text/javascript"></script>
-<script src="engine/size.js" type="text/javascript"></script>
 <script src="engine/polygon.js" type="text/javascript"></script>
-<script src="engine/sound.js" type="text/javascript"></script>
-<script src="engine/time.js" type="text/javascript"></script>
-<script src="engine/renderer.js" type="text/javascript"></script>
-<script src="engine/event-queues.js" type="text/javascript"></script>
 
-<script src="engine/behaviors/stateful.js" type="text/javascript"></script>
+<script src="engine/color.js" type="text/javascript"></script>
+
+<script src="engine/sound.js" type="text/javascript"></script>
+<script src="engine/image.js" type="text/javascript"></script>
+<script src="engine/time.js" type="text/javascript"></script>
+
+<script src="engine/screen.js" type="text/javascript"></script>
+
+<script src="engine/entity-system.js" type="text/javascript"></script>
 
 <script src="engine/seedrandom-master/seedrandom.min.js" type="text/javascript"></script>
 
 <script src="game/constants.js" type="text/javascript"></script>
+<script src="game/assets.js" type="text/javascript"></script>
 
-<script src="game/behaviors/main-game.js" type="text/javascript"></script>
+<script src="game/screens/root.js" type="text/javascript"></script>
+<script src="game/screens/loading.js" type="text/javascript"></script>
+<script src="game/screens/title.js" type="text/javascript"></script>
+<script src="game/screens/main.js" type="text/javascript"></script>
+
+<script src="game/systems/relative.js" type="text/javascript"></script>
+<script src="game/systems/sprite.js" type="text/javascript"></script>
 
 <script>
 
@@ -56,203 +65,57 @@ function getMousePos(canvas, evt) {
 	return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
 }
 
-function loadScriptCache() {
-	return function(callback) {
-		var result = {};
-		var toDoCount = renderScriptUrls.length;
-		renderScriptUrls.forEach(function(url) {
-			ScriptLoader.load(url, {}, function(err, script, cache) {
-				if (err) {
-					return callback(err);
-				}
-				for (var id in cache) {
-					result[id] = cache[id];
-				}
-
-				toDoCount--;
-				if (toDoCount <= 0) {
-					callback(result);
-				}
-			});
-		});
-	};
-}
-
 function onload() {
-	var canvas = document.getElementById('mainCanvas');
+	var canvas = document.getElementById('screen');
 	var context = canvas.getContext('2d');
 
 	Math.seedrandom();
 
-	Sound.init({
-		intro: {
-			sources: [
-				{ url: 'game/assets/sounds/1 welcome worker.ogg' }
-			],
-			volume: 1
-		},
-		buttonPress: {
-			sources: [
-				{ url: 'game/assets/sounds/button clicking sound.wav' }
-			],
-			volume: 1
-		},
-		good1: {
-			sources: [
-				{ url: 'game/assets/sounds/2 well done.ogg' }
-			],
-			volume: 1
-		},
-		good2: {
-			sources: [
-				{ url: 'game/assets/sounds/well done cut.ogg' }
-			],
-			volume: 1
-		},
-		bad1: {
-			sources: [
-				{ url: 'game/assets/sounds/4 Please obey the rules.ogg' }
-			],
-			volume: 1
-		},
-		bad2: {
-			sources: [
-				{ url: 'game/assets/sounds/5 Final warning.ogg' }
-			],
-			volume: 1
-		},
-		termination: {
-			sources: [
-				{ url: 'game/assets/sounds/6 Terminating.ogg' }
-			],
-			volume: 1
-		},
-		multiplePress: {
-			sources: [
-				{ url: 'game/assets/sounds/Multiple times.ogg' }
-			],
-			volume: 1
-		},
-		playerIn: {
-			sources: [
-				{ url: 'game/assets/sounds/Greifarm.ogg' }
-			],
-			volume: 1
-		},
-		playerOut: {
-			sources: [
-				{ url: 'game/assets/sounds/Falltuer.ogg' }
-			],
-			volume: 1
-		},
-		amb: {
-			sources: [
-				{ url: 'game/assets/sounds/ambience.ogg' }
-			],
-			volume: 1
-		},
-		ambVolt: {
-			sources: [
-				{ url: 'game/assets/sounds/ambience plus VUmeter.ogg' }
-			],
-			volume: 1
-		},
-		instability: {
-			sources: [
-				{ url: 'game/assets/sounds/7 System instability.ogg'}
-			],
-			volume: 1
-		},
-		overload: {
-			sources: [
-				{ url: 'game/assets/sounds/8 System overload.ogg'}
-			],
-			volume: 1
-		},
-		finalOverload: {
-			sources: [
-				{ url: 'game/assets/sounds/9 OVERLOAD.ogg'}
-			],
-			volume: 1
-		},
-	});
-
-	function loadTextures(sources) {
-		return sources.map(function(source) {
-			var result = new Image();
-			result.src = source;
-			return result;
-		});
-	}
-
-	var assets = {
-		textures: loadTextures({
-			splash1: 'game/assets/textures/Splash1.png',
-			splash2: 'game/assets/textures/Splash2.png',
-			layer01: 'game/assets/textures/layer01.png',
-			layer02: 'game/assets/textures/layer02.png',
-			layer03: 'game/assets/textures/layer03.png',
-			layer04: 'game/assets/textures/layer04.png',
-			layer05: 'game/assets/textures/layer05.png',
-			layer05_a: 'game/assets/textures/layer05_a.png',
-			layer07: 'game/assets/textures/layer07.png',
-			layer08: 'game/assets/textures/layer08.png',
-			layer09: 'game/assets/textures/layer09.png',
-			layer10: 'game/assets/textures/layer10.png',
-			layer11: 'game/assets/textures/layer11.png',
-			player: 'game/assets/textures/player_anim.png',
-			arrow: 'game/assets/textures/arrow.png'
-		})
-	};
-
-	var eventQueue = EventQueue(
-		Async.cont(function(callback) {
-			var id = requestAnimFrame(function() {
-				callback(canvas, context, assets);
-			});
-
-			return function() {
-				cancelAnimFrame(id);
-			};
-		})
-	);
+	var rootScreen = RootScreen();
 
 	document.addEventListener('keydown', function(event) {
+		rootScreen(event);
 	}, false);
 	document.addEventListener('keypress', function(event) {
+		rootScreen(event);
 	}, false);
 	document.addEventListener('keyup', function(event) {
+		rootScreen(event);
 	}, false);
 
-	canvas.addEventListener('mousedown', function(event) {
-		var mousePos = getMousePos(canvas, event);
-		eventQueue.onMouseDown(mousePos);
-	}, false);
-	canvas.addEventListener('mousemove', function(event) {
-	}, false);
-	document.addEventListener('mouseup', function(event) {
-	}, false);
-
-	window.addEventListener('blur', function() {
-		Sound.stopAll();
-	});
-	window.addEventListener('focus', function() {
-//		Sound.play('background2');
-	});
-
-	var main = MainGame(eventQueue);
-
-	function next() {
-		return main(next);
+	function handleMouseEvent(event) {
+		rootScreen({ type: event.type, pos: getMousePos(canvas, event) });
 	}
 
-	next();
+	canvas.addEventListener('mousedown', handleMouseEvent, false);
+	canvas.addEventListener('mousemove', handleMouseEvent, false);
+	document.addEventListener('mouseup', handleMouseEvent, false);
+
+	window.addEventListener('blur', function() {
+		Sound.pauseAll();
+	});
+	window.addEventListener('focus', function() {
+		Sound.resumeAll();
+	});
+
+	var lastT = Time.now();
+	requestAnimFrame(function show() {
+		var t = Time.now();
+		var dt = (t - lastT) * 0.001;
+
+		context.clearRect(0, 0, canvas.width, canvas.height);
+
+		rootScreen({ type: 'update', dt: dt });
+		rootScreen({ type: 'show', context: context });
+
+		requestAnimFrame(show);
+	});
 }
 
 </script>
 </head>
 <body width="1280" height="720" onload="onload();" style="width: 100%; height: 100%; margin: 0px;">
-	<canvas id="mainCanvas" width="1280" height="720"></canvas>
+	<canvas id="screen" width="1280" height="720"></canvas>
 	<input type="button" id="btnReload" name="btnReload" value="Reload">
 </body>
 </html>

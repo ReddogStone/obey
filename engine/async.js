@@ -1,23 +1,34 @@
 var Async = (function() {
-	function cont(raw) {
+	function cancellable(raw) {
 		return function(callback) {
-			var cancelled = false;
-			var nestedCancel = raw(function() {
-				if (!cancelled) {
-					callback.apply(null, arguments);
-					cancelled = true;
-				}
-			});
+			var done = false;
+
+			try {
+				var nestedCancel = raw(function(error) {
+					if (!done) {
+						done = true;
+						if (error) { return callback(error); }
+
+						callback.apply(null, arguments);
+					}
+				});
+			} catch (e) {
+				callback(e);
+			}
 
 			return function() {
-				if (cancelled) { return; }
-				cancelled = true;
+				if (done) { return; }
+				done = true;
 				if (nestedCancel) { nestedCancel(); }
+
+				var err = new Error();
+				err.cancel = true;
+				callback(err);
 			};
 		};
 	}
 
-	function sequence(tasks) {
+/*	function sequence(tasks) {
 		if (!Array.isArray(tasks)) {
 			tasks = Array.prototype.slice.call(arguments);
 		}
@@ -187,11 +198,11 @@ var Async = (function() {
 				callback(value);
 			});
 		});
-	}
+	} */
 
 	return {
-		cont: cont,
-		first: first,
+		cancellable: cancellable,
+/*		first: first,
 		sequence: sequence,
 		waterfall: waterfall,
 		doWhileSecondRunning: doWhileSecondRunning,
@@ -202,6 +213,6 @@ var Async = (function() {
 		forever: forever,
 		then: then,
 		ret: ret,
-		onceWhileSecondRunning: onceWhileSecondRunning
+		onceWhileSecondRunning: onceWhileSecondRunning */
 	};
 })();
