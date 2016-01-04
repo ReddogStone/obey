@@ -51,6 +51,18 @@ var Action = (function() {
 		interval: interval,
 		wait: function(duration) {
 			return interval(duration, function() {});
+		},
+		performTask: function(task) {
+			var finished = false;
+
+			task(function(error) {
+				if (error) { throw error; }
+				finished = true;
+			});
+
+			return function() {
+				return { done: finished };
+			};
 		}
 	};
 })();

@@ -28,6 +28,10 @@ var Async = (function() {
 		};
 	}
 
+	function fireAndForget(task) {
+		return task(function() {});
+	}	
+
 /*	function sequence(tasks) {
 		if (!Array.isArray(tasks)) {
 			tasks = Array.prototype.slice.call(arguments);
@@ -202,6 +206,7 @@ var Async = (function() {
 
 	return {
 		cancellable: cancellable,
+		fireAndForget: fireAndForget,
 /*		first: first,
 		sequence: sequence,
 		waterfall: waterfall,

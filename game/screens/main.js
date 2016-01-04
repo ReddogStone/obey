@@ -27,6 +27,10 @@ var MainScreen = function() {
 	actionSystem.add(Action.run(function*() {
 		var startPlayerPos = vclone(player.pos);
 
+		Sound.play('door')(function() {
+			Async.fireAndForget(Sound.play('welcome'));
+		});
+
 		yield Action.interval(0.5, function(progress) {
 			door.pos.y = -progress * 720;
 		});
