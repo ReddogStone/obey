@@ -10,9 +10,12 @@ var ActionSystem = function() {
 			return list.splice(list.indexOf(action), 1);
 		},
 		update: function(dt) {
-			list = list.filter(function(action) {
+			list.forEach(function(action) {
 				var result = action(dt);
-				return !result.done;
+				action._done = result.done;
+			});
+			list = list.filter(function(action) {
+				return !action._done;
 			});
 		}
 	};
