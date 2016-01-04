@@ -39,3 +39,7 @@ function vnorm(v) {
 function vdir(from, to) {
 	return vnorm(vsub(to, from));
 }
+
+function vlerp(v1, v2, a) {
+	return vadd(vscale(v1, 1 - a), vscale(v2, a));
+}

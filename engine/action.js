@@ -1,4 +1,23 @@
 var Action = (function() {
+	function interval(duration, update) {
+		var t = 0;
+		update(0);
+
+		return function(dt) {
+			var result = { done: false };
+
+			t += dt;
+			if (t >= duration) {
+				t = duration;
+				result = { done: true, remaining: t - duration };
+			}
+
+			update(t / duration);
+
+			return result;
+		};
+	}
+
 	return {
 		run: function (generatorFunc) {
 			var gen = generatorFunc();
@@ -29,23 +48,9 @@ var Action = (function() {
 				return result;
 			};
 		},
-		interval: function(interval, update) {
-			var t = 0;
-			update(0);
-
-			return function(dt) {
-				var result = { done: false };
-
-				t += dt;
-				if (t >= interval) {
-					t = interval;
-					result = { done: true, remaining: t - interval };
-				}
-
-				update(t / interval);
-
-				return result;
-			};
+		interval: interval,
+		wait: function(duration) {
+			return interval(duration, function() {});
 		}
 	};
 })();

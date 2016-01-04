@@ -2,48 +2,40 @@ var MainScreen = function() {
 	var entities = EntitySystem();
 	var actionSystem = ActionSystem();
 
-	var playerTest = entities.add({
-		sprite: {
-			id: 'player-test',
-			anchor: vec(0.5, 0.5)
-		},
-		zOrder: 1
-	});
-
-	var middle = entities.add({
-		sprite: {
-			id: 'arrow',
-			anchor: vec(0, 0)
-		},
+	var floor = entities.add({
+		pos: vec(0, 0),
+		sprite: { id: 'floor' },
 		zOrder: 0
 	});
-
-	var top = entities.add({
-		pos: vec(100, 100)
+	var door = entities.add({
+		pos: vec(0, 0),
+		sprite: { id: 'door' },
+		zOrder: 1
+	});
+	var background = entities.add({
+		pos: vec(0, 0),
+		sprite: { id: 'bg' },
+		zOrder: 2
 	});
 
-	middle.relativePos = {
-		offset: vec(500, 0),
-		parent: top
-	};
-	playerTest.relativePos = {
-		offset: vec(0, 400),
-		parent: middle
-	};
+	var player = entities.add({
+		pos: vec(1500, 720),
+		sprite: { id: 'player', anchor: vec(0.5, 1) },
+		zOrder: 3
+	});
 
 	actionSystem.add(Action.run(function*() {
-		while (true) {
-			var startOffset = vclone(playerTest.relativePos.offset);
-			yield Action.interval(0.5, function(progress) {
-				playerTest.relativePos.offset = vscale(startOffset, 1.0 - progress);
-			});
+		var startPlayerPos = vclone(player.pos);
 
-			yield Action.interval(1.0, function() {});
-			yield Action.interval(2.0, function(progress) {
-				playerTest.relativePos.offset = vscale(startOffset, progress);
-			});
-			yield Action.interval(1.0, function() {});
-		}
+		yield Action.interval(0.5, function(progress) {
+			door.pos.y = -progress * 720;
+		});
+		yield Action.interval(2.0, function(progress) {
+			player.pos = vlerp(startPlayerPos, vec(640, 720), progress);
+		});
+		yield Action.interval(0.5, function(progress) {
+			door.pos.y = -720 * (1 - progress);
+		});
 	}));
 
 	return function(event) {
