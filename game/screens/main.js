@@ -1,6 +1,6 @@
 var MainScreen = function() {
 	var entities = EntitySystem();
-	var actionSystem = ActionSystem();
+	var behaviorSystem = BehaviorSystem();
 	var renderSystem = RenderSystem({
 		'sprite': renderSprite,
 		'text': renderText
@@ -54,7 +54,7 @@ var MainScreen = function() {
 		zOrder: 4
 	};
 
-	var caseText = {
+	var case1Text = {
 		pos: vec(320, 50),
 		size: vec(300, 400),
 		text: {
@@ -75,6 +75,29 @@ var MainScreen = function() {
 		zOrder: 4
 	};
 
+	var case2Text = {
+		pos: vec(320, 50),
+		size: vec(300, 400),
+		text: {
+			font: { name: 'consolas', height: 14, lineSpacing: 1.5 },
+			message: "{{bold}}{{huge}}" +
+				"The CASE\n" +
+				"{{normal}}{{big}}" +
+				"Routine investigation :\n" +
+				"{{regular}}" +
+				"  Minor defect detected in element :\n" +
+				"    OS_28_f\n\n" +
+				"  Prior defects : 0\n\n" +
+				"  Suggested action :\n" +
+				"{{bold}}" +
+				"    ISOLATION"
+		},
+		render: { scriptId: 'text' },
+		zOrder: 4
+	};
+
+	var mouseDown = false;
+
 	function fadeInAndBlink(entity) {
 		return Action.run(function*() {
 			yield Action.interval(3, function(progress) {
@@ -92,49 +115,71 @@ var MainScreen = function() {
 		});
 	}
 
-	actionSystem.add(Action.run(function*() {
+	behaviorSystem.add(Behavior.run(function*() {
 		var startPlayerPos = vclone(player.pos);
 
-		Sound.play('door')(function() {
-			Sound.play('welcome')(function() {
-				actionSystem.add(fadeOut(caseText));
-				actionSystem.add(fadeOut(codexText));
-			});
-		});
+		yield Behavior.parallel(
+			Behavior.run(function*() {
+				// yield Behavior.action( Action.performTask(Sound.play('door')) );
+				// yield Behavior.action( Action.performTask(Sound.play('welcome')) );
 
-		yield Action.interval(0.5, function(progress) {
-			door.pos.y = -progress * 720;
-		});
-		yield Action.interval(2.0, function(progress) {
-			player.pos = vlerp(startPlayerPos, vec(640, 720), progress);
-		});
-		yield Action.interval(0.5, function(progress) {
-			door.pos.y = -720 * (1 - progress);
-		});
+				var where = yield Behavior.mouseDown();
 
-		yield Action.wait(17);
-		entities.add(codexText);
+				yield Behavior.action( Action.performTask(Sound.play('wellDone')) );
 
-		actionSystem.add(fadeInAndBlink(codexText));
+				var result = yield Behavior.first(
+					Behavior.run(function*() {
+						yield Behavior.mouseDown();
+						return false;
+					}),
+					Behavior.run(function*() {
+						yield Behavior.action(Action.wait(2));
+						return true;
+					})
+				);
+				if (result) {
+					yield Behavior.action( Action.performTask(Sound.play('wellDone')) );					
+				} else {
+					yield Behavior.action( Action.performTask(Sound.play('door')) );
+				}
+			}),
+			Behavior.run(function*() {
+				yield Behavior.action( Action.interval(0.5, function(progress) {
+					door.pos.y = -progress * 720;
+				}) );
+				yield Behavior.action( Action.interval(2.0, function(progress) {
+					player.pos = vlerp(startPlayerPos, vec(640, 720), progress);
+				}) );
+				yield Behavior.action( Action.interval(0.5, function(progress) {
+					door.pos.y = -720 * (1 - progress);
+				}) );
 
-		yield Action.wait(9);
-		entities.add(caseText);
+				yield Behavior.action( Action.wait(17) );
+				entities.add(codexText);
 
-		actionSystem.add(fadeInAndBlink(caseText));
+				behaviorSystem.add(Behavior.action( fadeInAndBlink(codexText) ));
+
+				yield Behavior.action( Action.wait(9) );
+				entities.add(case1Text);
+
+				behaviorSystem.add(Behavior.action( fadeInAndBlink(case1Text) ));
+			})
+		);
 	}));
 
 	return function(event) {
 		switch (event.type) {
 			case 'update':
 				RelativeSystem.update(entities);
-				actionSystem.update(event.dt);
 				break;
 
 			case 'show':
 				renderSystem.show(event.context, entities);
 				break;
+		}
 
-			case 'mousedown': return {}
+		if (event.type !== 'show') {
+			behaviorSystem.update(event);
 		}
 	};
 }
