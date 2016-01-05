@@ -7,7 +7,11 @@ var EntitySystem = function() {
 			return entity;
 		},
 		remove: function(entity) {
-			return list.splice(list.indexOf(entity), 1)[0];
+			var index = list.indexOf(entity);
+			if (index >= 0) {
+				return list.splice(index, 1)[0];
+			}
+			return null;
 		},
 		filter: function(components) {
 			return list.filter(function(entity) {

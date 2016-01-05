@@ -127,6 +127,10 @@ var MainScreen = function() {
 
 				yield Behavior.action( Action.performTask(Sound.play('wellDone')) );
 
+				entities.remove(case1Text);
+				entities.add(case2Text);
+				yield Behavior.action( fadeInAndBlink(case2Text) )
+
 				var result = yield Behavior.first(
 					Behavior.run(function*() {
 						yield Behavior.mouseDown();
