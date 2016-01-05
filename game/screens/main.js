@@ -120,8 +120,8 @@ var MainScreen = function() {
 
 		yield Behavior.parallel(
 			Behavior.run(function*() {
-				// yield Behavior.action( Action.performTask(Sound.play('door')) );
-				// yield Behavior.action( Action.performTask(Sound.play('welcome')) );
+				yield Behavior.action( Action.performTask(Sound.play('door')) );
+				yield Behavior.action( Action.performTask(Sound.play('welcome')) );
 
 				var where = yield Behavior.mouseDown();
 
