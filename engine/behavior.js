@@ -1,24 +1,4 @@
 var Behavior = (function() {
-	var actions = {};
-	var nextActionId = 0;
-
-	function addAction(action) {
-		var id = nextActionId++;
-		actions[id] = action;
-		return function() {
-			delete actions[id];
-		};
-	}
-
-	function runActions(dt) {
-		Object.keys(actions).forEach(function(id) {
-			var done = actions[id](dt).done;
-			if (done) {
-				delete actions[id];
-			}
-		});
-	}
-
 	function twoParallel(behavior1, behavior2) {
 		var done1 = false;
 		var done2 = false;
@@ -38,9 +18,32 @@ var Behavior = (function() {
 		};
 	}
 
+	function interval(duration, update) {
+		var t = 0;
+		update(0);
+		return function(event) {
+			if (event.type !== 'update') { return { done: false }; }
+
+			var result = { done: false };
+
+			t += event.dt;
+			if (t >= duration) {
+				t = duration;
+				result = {
+					done: true,
+					pass: { type: 'update', dt: t - duration }
+				};
+			}
+
+			update(t / duration);
+
+			return result;
+		};
+	}	
+
 	return {
 		run: function(generatorFunc) {
-			var gen = generatorFunc(addAction);
+			var gen = generatorFunc();
 
 			var res = gen.next();
 			if (res.done) {
@@ -49,16 +52,17 @@ var Behavior = (function() {
 
 			var current = res.value;
 			return function(event) {
-				if (event.type === 'update') {
-					runActions(event.dt);
-				}
-
 				var res = current(event);
-				if (res.done) {
+				while (res.done) {
 					var res = gen.next(res.value);
 					if (res.done) { return res; }
 
 					current = res.value;
+					if (res.pass) {
+						res = current(res.pass);
+					} else {
+						res = { done: false };
+					}
 				}
 
 				return { done: false };
@@ -77,18 +81,6 @@ var Behavior = (function() {
 				if (event.type === 'mousedown') {
 					return { done: true, value: event.pos };
 				}
-				return { done: false };
-			};
-		},
-		action: function(action) {
-			return function(event) {
-				if (event.type === 'update') {
-					var res = action(event.dt);
-					if (res.done) {
-						return { done: true };
-					}
-				}
-
 				return { done: false };
 			};
 		},
@@ -113,6 +105,22 @@ var Behavior = (function() {
 
 				return { done: false };
 			};
-		}
+		},
+		interval: interval,
+		wait: function(duration) {
+			return interval(duration, function() {});
+		},
+		performTask: function(task) {
+			var finished = false;
+
+			task(function(error) {
+				if (error) { throw error; }
+				finished = true;
+			});
+
+			return function() {
+				return { done: finished };
+			};
+		}		
 	};
 })();
